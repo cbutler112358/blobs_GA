@@ -1,7 +1,7 @@
 globals [
   max-food ;; set during setup
-  K ;; carrying capacity of environment
 
+  ;; some quantities helpful for analysis, these can be ignored
   purpleList
   blueList
   greenList
@@ -113,22 +113,11 @@ blobs-own [
 
   ;; how often do I forage?
   forage-prob
-
-  ;; when do I begin foraging? Above which I will hunt
-  ;; hungryThresh
-
-  ;; can I breed?
-  ;; has-breed
-
-  ;; do not eat above this level!
-  ;; full ;; max 50
-  ;; a blob is full when it's energy is maxed
 ]
 
 
 to setup
   clear-all
-  set K 1000
   setup-food
   setup-agents
   reset-ticks
@@ -143,23 +132,15 @@ to setup
   set maxEnergyList []
 
   set pop-list []
-
   set purple-pop []
-
   set blue-pop []
-
   set green-pop []
-
   set orange-pop []
-
   set red-pop []
 
   set pred-list []
-
   set fang-size-list []
-
   set mean-track []
-
 end
 
 
@@ -199,20 +180,21 @@ to go
 end
 
 to step
+  calculate-metrics
   ;; check my energy first
   if (count blobs = 0) [
-    ;; calculate-quants
+    calculate-quants
     stop
   ]
 
-  if (ticks = 5000) [
+  if (ticks = 2000) [
     calculate-quants
     stop
   ]
   if (MBI = true) [
     ;; mutation probability decreases over the course of first 100 generations from
     ;; 0.10 to (max of) 0.02
-    if (ticks <= 200) [ set mutation-prob (precision ((-0.08 / 200) * ticks + 0.10) 3)]
+    if (ticks <= 100) [ set mutation-prob (precision ((-0.08 / 100) * ticks + 0.10) 3)]
     ;; show mutation-prob
   ]
   ask blobs [
@@ -222,12 +204,13 @@ to step
   decide ;; includes move
   if (ticks mod grow-time) = 0 [ grow-food ]
   decay
+
   ;; let breed? count blobs with [current-energy > max-energy]
   ;; if breed? > 0 [
-  ;;   while [(count blobs) < num-blobs][ breed-agent ]
+  ;;  while [(count blobs) < num-blobs][ breed-agent ]
   ;; ]
   ;; histogram [fang-size] of blobs
-  calculate-metrics
+  ;; export-view (word ticks ".png")
   tick
 end
 
@@ -237,8 +220,6 @@ to setup-agents
     set shape "circle"
     ;; choose random values
     setxy random-pxcor random-pycor
-
-    ;; set has-breed 0
 
     set look-radius random 6
 
@@ -318,12 +299,6 @@ to setup-agents
 
     ;; flee step
     set fleeStep ((random-float 1) * max-speed)
-
-    ;; threshold I begin to forage
-    ;; set hungryThresh random %energy + 1
-
-
-
   ] ;; end of create-blobs
 end
 
@@ -375,8 +350,6 @@ to decide
         look-hunt
       ]
     ] ;; end of ifelse > max-energy
-
-
   ]
 end
 
@@ -442,11 +415,6 @@ to look-hunt
       ]
     ]
     [
-      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-      ;; in past version, forgot to include "and (num-size < mySize)" -- blobs evolved killing
-      ;; even when conversion was zero because the code killed prey thinking they could be
-      ;; eaten
-      ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       ;; no one in bite radius, but can I lunge to get them?
       let numLungePrey count other (blobs with [((fleeStep + distance myself) < myChaseStep) and (num-size < mySize)] in-radius look-radius)
       ifelse numLungePrey > 0
@@ -505,11 +473,7 @@ to look-hunt
 
       ] ;; end of ifelse lunge
     ]
-
   ] ;; end of ifelse looking for predator
-
-
-
 end
 
 
@@ -557,7 +521,7 @@ to look-forage
           fd stepFd
 
           set current-energy (current-energy - movement-cost * stepFd + food-energy)
-          ask foods in-radius 0 [ die ]
+          ask foods in-radius 0.01 [ die ]
         ]
         [
           ;; it's not close enough..
@@ -596,9 +560,6 @@ to look-forage
     ]
 
   ] ;; end of ifelse looking for predator
-
-
-
 end
 
 
@@ -642,195 +603,6 @@ to grow-food
   ] ;; end of while loop
 
 end
-
-to breed-agent
-let parents blobs with [current-energy > max-energy]
-
-;; create a new turtle with average qualities..
-create-blobs 1 [
-  set shape "circle"
-  ;; choose random values
-  setxy random-pxcor random-pycor
-
-  let %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set max-energy random max-life + 1
-  ]
-  [
-    set max-energy one-of ([max-energy] of parents)
-  ]
-
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set look-radius random 7
-  ]
-  [
-    set look-radius one-of ([look-radius] of parents)
-  ]
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set fang-size random 7
-  ]
-  [
-    set fang-size one-of ([fang-size] of parents)
-  ]
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set chaseTime random 10 + 1
-  ]
-  [
-    set chaseTime one-of ([chaseTime] of parents)
-  ]
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set chaseStep ((random-float 1) * max-speed)
-  ]
-  [
-    set chaseStep one-of ([chaseStep] of parents)
-  ]
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set forageTurn random 365
-  ]
-  [
-    set forageTurn one-of ([forageTurn] of parents)
-  ]
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set forageStep ((random-float 1) * max-speed)
-  ]
-  [
-    set forageStep one-of ([forageStep] of parents)
-  ]
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set forageStep ((random-float 1) * max-speed)
-  ]
-  [
-    set forageStep one-of ([forageStep] of parents)
-  ]
-
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set huntingTurn random 365
-  ]
-  [
-    set huntingTurn one-of ([huntingTurn] of parents)
-  ]
-
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set huntingStep ((random-float 1) * max-speed)
-  ]
-  [
-    set huntingStep one-of ([huntingStep] of parents)
-  ]
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set ambleTurn random 365
-  ]
-  [
-    set ambleTurn one-of ([ambleTurn] of parents)
-  ]
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set ambleStep ((random-float 1) * max-speed)
-  ]
-  [
-    set ambleStep one-of ([ambleStep] of parents)
-  ]
-
-
-  set %mutation (random-float 1)
-  ifelse %mutation < mutation-prob
-  [
-    set fleeStep ((random-float 1) * max-speed)
-  ]
-  [
-    set fleeStep one-of ([fleeStep] of parents)
-  ]
-
-  ;; set %mutation (random-float 1)
-  ;; ifelse %mutation < mutation-prob
-  ;; [
-    ;; set hungryThresh random max-energy + 1
-  ;; ]
-  ;; [
-    ;; set hungryThresh mean ([hungryThresh] of parents)
-  ;; ]
-
-  set current-energy max-energy
-
-
-  ifelse max-energy < (0.2 * max-life)
-  [ ;; extra small
-    set max-speed 0.5 * max-speed-tot
-    set size 5
-    set color 125
-    set num-size 1
-  ]
-  [
-    ifelse max-energy < (0.4 * max-life)
-    [ ;; small
-      set max-speed 0.4 * max-speed-tot
-      set size 6
-      set color 105
-      set num-size 2
-    ]
-    [
-      ifelse max-energy < (0.6 * max-life)
-      [ ;; medium
-        set max-speed 0.3 * max-speed-tot
-        set size 7
-        set color 65
-        set num-size 3
-      ]
-      [
-        ifelse max-energy < (0.8 * max-life)
-        [ ;; large
-          set max-speed 0.2 * max-speed-tot
-          set size 8
-          set color 25
-          set num-size 4
-        ]
-        [
-          ;; extra large
-          set max-speed 0.1 * max-speed-tot
-          set size 9
-          set color 15
-          set num-size 5
-        ]
-      ]
-    ]
-  ]
-
-]
-
-end
-
 
 to look-breed
   ;; look to blobs around you, if there are any with greater size than you,
@@ -1094,86 +866,6 @@ to decay
 
 end
 
-to deploy
-  ;; deploy selective sweep agent 41s
-  create-blobs num-agent-41s [
-
-    set shape "circle"
-    set color 7
-
-    setxy random-pxcor random-pycor
-    ;; set user-defined variables
-    set num-size size-41
-    set fang-size fang-size-41
-    set forage-prob forage-prob-41
-
-    ;; step size
-    ifelse num-size = 1
-    [ ;; extra small
-      set max-speed 0.5 * max-speed-tot
-      set size 5
-      set color 125
-      set max-energy round (0.19 * max-life)
-    ]
-    [
-      ifelse num-size = 2
-      [ ;; small
-        set max-speed 0.4 * max-speed-tot
-        set size 6
-        set color 105
-        set max-energy round (0.39 * max-life)
-      ]
-      [
-        ifelse num-size = 3
-        [ ;; medium
-          set max-speed 0.3 * max-speed-tot
-          set size 7
-          set color 65
-          set max-energy round (0.59 * max-life)
-        ]
-        [
-          ifelse num-size = 4
-          [ ;; large
-            set max-speed 0.2 * max-speed-tot
-            set size 8
-            set color 25
-            set max-energy round (0.79 * max-life)
-          ]
-          [
-            ;; extra large
-            set max-speed 0.1 * max-speed-tot
-            set size 9
-            set color 15
-            set max-energy round (0.99 * max-life)
-          ]
-        ]
-      ]
-    ]
-
-    set current-energy max-energy
-
-
-    ;; assign remaining attributes according to what's optimal
-    let bestBlobs blobs with [max-energy > current-energy]
-
-    set look-radius one-of ([look-radius] of bestBlobs)
-    set chaseTime one-of ([chaseTime] of bestBlobs)
-    set chaseStep one-of ([chaseStep] of bestBlobs)
-    set forageTurn one-of ([forageTurn] of bestBlobs)
-
-    set forageStep one-of ([forageStep] of bestBlobs)
-    set forageStep one-of ([forageStep] of bestBlobs)
-    set huntingTurn one-of ([huntingTurn] of bestBlobs)
-    set huntingStep one-of ([huntingStep] of bestBlobs)
-    set ambleTurn one-of ([ambleTurn] of bestBlobs)
-    set ambleStep one-of ([ambleStep] of bestBlobs)
-    set fleeStep one-of ([fleeStep] of bestBlobs)
-
-  ]
-
-
-end
-
 
 
 to calculate-metrics
@@ -1203,27 +895,7 @@ to calculate-metrics
     set pred-list lput 0 pred-list
   ]
 
-;  if ((ticks mod 100) = 0) [
-;    ;; show "yes"
-;    ifelse (count blobs > 0) [
-;      set pop-list lput (count blobs) pop-list
-;      set purple-pop lput (count blobs with [num-size = 1]) purple-pop
-;      set blue-pop lput (count blobs with [num-size = 2]) blue-pop
-;      set green-pop lput (count blobs with [num-size = 3]) green-pop
-;      set orange-pop lput (count blobs with [num-size = 4]) orange-pop
-;      set red-pop lput (count blobs with [num-size = 5]) red-pop
-;      set mean-track lput (mean [current-energy] of blobs) mean-track
-;    ]
-;    [
-;      set pop-list lput 0 pop-list
-;      set purple-pop lput 0 purple-pop
-;      set blue-pop lput 0 blue-pop
-;      set green-pop lput 0 green-pop
-;      set orange-pop lput 0 orange-pop
-;      set red-pop lput 0 red-pop
-;      set mean-track lput 0 mean-track
-;    ]
-;  ]
+
 
 
 end
@@ -1360,9 +1032,9 @@ SLIDER
 num-blobs
 num-blobs
 0
-500
+1000
 400.0
-10
+100
 1
 NIL
 HORIZONTAL
@@ -1376,7 +1048,7 @@ food-prob
 food-prob
 0
 0.1
-0.015
+0.032
 0.001
 1
 NIL
@@ -1487,7 +1159,7 @@ mutation-prob
 mutation-prob
 0
 0.2
-0.02
+0.09
 0.01
 1
 NIL
@@ -1539,7 +1211,7 @@ size-cost
 size-cost
 0
 2
-0.3
+0.5
 0.05
 1
 NIL
@@ -1598,7 +1270,7 @@ movement-cost
 movement-cost
 0
 3
-0.1
+1.0
 0.05
 1
 NIL
@@ -1786,7 +1458,7 @@ PENS
 MONITOR
 572
 469
-652
+644
 514
 fang-size>1
 count blobs with [fang-size > 1]
@@ -1830,111 +1502,6 @@ false
 PENS
 "default" 1.0 1 -16777216 true "" "histogram (([forage-prob * 100] of blobs))"
 
-PLOT
-69
-614
-269
-764
-plot 1
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles"
-
-TEXTBOX
-289
-602
-504
-653
-Agent41 deployment (selective sweep generator)
-14
-15.0
-1
-
-SLIDER
-289
-649
-322
-799
-num-agent-41s
-num-agent-41s
-0
-20
-20.0
-2
-1
-NIL
-VERTICAL
-
-SLIDER
-333
-648
-366
-798
-fang-size-41
-fang-size-41
-0
-6
-5.0
-1
-1
-NIL
-VERTICAL
-
-SLIDER
-376
-648
-409
-798
-size-41
-size-41
-1
-5
-3.0
-1
-1
-NIL
-VERTICAL
-
-SLIDER
-419
-648
-452
-798
-forage-prob-41
-forage-prob-41
-0
-1
-0.0
-0.05
-1
-NIL
-VERTICAL
-
-BUTTON
-503
-700
-572
-733
-NIL
-deploy
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
 SWITCH
 14
 152
@@ -1946,54 +1513,68 @@ MBI
 1
 -1000
 
+SLIDER
+412
+521
+584
+554
+K
+K
+0
+2000
+1000.0
+100
+1
+NIL
+HORIZONTAL
+
+MONITOR
+600
+537
+701
+582
+mean predators
+(count blobs with [fang-size > 1]) / (count blobs)
+3
+1
+11
+
 @#$#@#$#@
-# Ideas and updates
-
-## 07/30/2021
-
-Blobs grew fangs to "hunt" because the landscape navigation strategy of hunting was more 
-rewarding than the landscape navigation strategy involved with foraging. Perhaps agents
-posess probabilities dictating how often they hunt and how often they forage. Perhaps
-blobs could also evolve look-radii so that the foraging and hunting algorithms can change
-with the population? 
-
-# Other stuff 
-
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+A genetic algorithm of blobs learning how to navigate and thrive on an artificial landscape, inspired by the game agar.io. 
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+First and foremost, blob size determines the most important characteristics of a blob, including speed and maximum energy. Larger blobs move slower than smaller blobs and incur a greater energy cost as well, but have much larger energy pools. Energy is what allows a blob to live and is expended during movement and the daily maintenance of certain blob features, such as fangs and size. If the energy of a blob ever reaches 0, the blob dies. When a blob's energy exceeds it's maxmimum energy, it will search for a mate to breed with. Breeding involves finding another blob  that also possesses an energy in excess of it's maximum energy. If a mate is successfully found, the blobs will produce a certain number of offspring. Each offspring trait is inherited from one of the two parent blobs (mutations also occur). Following reproduction, the parent blobs die.
+
+Besides reproduction, blobs have many other tasks they perform. Blobs make decisions by moving down a check list -- a "to-do list" of living, if you will. Before any decision is made, a blob surveys it's neighborhood for a predator blob. Predator blobs are determined by their <em>fang size</em>. A blob is only capable of eating another blob if its fang size is greater than the size of it's prey. For example, a blob with a fang size of 4 can consume blobs of sizes 1 (purple), 2 (blue), and 3 (green). However, larger fangs are more expensive to maintain. If a blob spots a predator blob, it will flee in the opposite direction. 
+
+If a predator is not around, the blob will proceed to either hunt or forage based on some genetic probability. If the blob forages, it will survey its surroundings for food. If the blob hunts, it will survey its surroundings for prey. If no food is around, the blob will just amble about. Everything determining movement, including the angles the  blobs turn prior to taking any steps, are all determined genetically. 
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
+Each variable is described in detail below.
 
-## THINGS TO NOTICE
-
-(suggested things for the user to notice while running the model)
-
-## THINGS TO TRY
-
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
-
-## EXTENDING THE MODEL
-
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
-
-## NETLOGO FEATURES
-
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
-
-## RELATED MODELS
-
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+num-blobs      : the number of blobs initially
+food-prob      : the probability a patch grows food
+bite-radius    : the radius within which blobs can bite
+food-energy    : energy gained per food
+max-life       : maximum amount of energy allowed
+mutation-prob  : probability of mutation per inherited trait
+fang-cost      : energy cost of a fang per day, multiplied by fang size 
+size-cost      : energy cost of size per day, multiplied by blob size
+max-speed-tot  : maximum speed allowed
+movement-cost  : energy cost of movement, multiplied by distance traveled
+biomass-conv   : amount of energy gained by consumption of a blob, multiplied by current 			 energy of prey blob
+num-offspring  : number of offspring produced per blob mating
+grow-time      : amount of time before food in environment is replenished 
+breed-radius   : radius within which blobs can see potential mates
+K              : carrying capacity of the system 
 
 ## CREDITS AND REFERENCES
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+Obtained from https://github.com/cbutler112358/blobs_GA. 
 @#$#@#$#@
 default
 true
@@ -2518,19 +2099,22 @@ NetLogo 6.1.1
     <metric>meanEnergy</metric>
     <metric>meanMaxEnergy</metric>
     <metric>meanPreds</metric>
+    <metric>fang-size-mean</metric>
     <metric>look-radius-mode</metric>
     <metric>look-radius-freq</metric>
     <metric>forage-prob-mean</metric>
     <metric>max-energy-mode</metric>
     <metric>max-energy-freq</metric>
+    <metric>max-energy-mean</metric>
     <metric>current-energy-mean</metric>
     <metric>size-var-mode</metric>
+    <metric>mean-size</metric>
     <metric>size-var-freq</metric>
     <metric>max-speed-mode</metric>
     <metric>max-speed-freq</metric>
+    <metric>max-speed-mean</metric>
     <metric>fang-size-mode</metric>
-    <metric>fang-size-freq</metric>
-    <metric>fang-size-mean</metric>
+    <metric>fang-size-mean-final</metric>
     <metric>chase-time-mode</metric>
     <metric>chase-time-freq</metric>
     <metric>chase-step-mean</metric>
@@ -2541,6 +2125,8 @@ NetLogo 6.1.1
     <metric>amble-turn-mean</metric>
     <metric>amble-step-mean</metric>
     <metric>flee-step-mean</metric>
+    <metric>max-energy-var</metric>
+    <metric>max-speed-var</metric>
     <metric>flee-step-var</metric>
     <metric>amble-step-var</metric>
     <metric>amble-turn-var</metric>
@@ -2587,6 +2173,230 @@ NetLogo 6.1.1
       <value value="3"/>
     </enumeratedValueSet>
     <steppedValueSet variable="size-cost" first="0" step="0.01" last="0.3"/>
+    <enumeratedValueSet variable="breed-radius">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="movement-cost">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="num-offspring">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="num-agent-41s">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="bite-radius">
+      <value value="0.2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-speed-tot">
+      <value value="10"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="experiment_3_5" repetitions="20" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>meanPurplePop</metric>
+    <metric>meanBluePop</metric>
+    <metric>meanGreenPop</metric>
+    <metric>meanOrangePop</metric>
+    <metric>meanRedPop</metric>
+    <metric>meanEnergy</metric>
+    <metric>meanMaxEnergy</metric>
+    <metric>meanPreds</metric>
+    <metric>fang-size-mean</metric>
+    <metric>look-radius-mode</metric>
+    <metric>look-radius-freq</metric>
+    <metric>forage-prob-mean</metric>
+    <metric>max-energy-mode</metric>
+    <metric>max-energy-freq</metric>
+    <metric>max-energy-mean</metric>
+    <metric>current-energy-mean</metric>
+    <metric>size-var-mode</metric>
+    <metric>mean-size</metric>
+    <metric>size-var-freq</metric>
+    <metric>max-speed-mode</metric>
+    <metric>max-speed-freq</metric>
+    <metric>max-speed-mean</metric>
+    <metric>fang-size-mode</metric>
+    <metric>fang-size-mean-final</metric>
+    <metric>chase-time-mode</metric>
+    <metric>chase-time-freq</metric>
+    <metric>chase-step-mean</metric>
+    <metric>forage-turn-mean</metric>
+    <metric>forage-step-mean</metric>
+    <metric>hunting-turn-mean</metric>
+    <metric>hunting-step-mean</metric>
+    <metric>amble-turn-mean</metric>
+    <metric>amble-step-mean</metric>
+    <metric>flee-step-mean</metric>
+    <metric>max-energy-var</metric>
+    <metric>max-speed-var</metric>
+    <metric>flee-step-var</metric>
+    <metric>amble-step-var</metric>
+    <metric>amble-turn-var</metric>
+    <metric>hunting-step-var</metric>
+    <metric>hunting-turn-var</metric>
+    <metric>forage-step-var</metric>
+    <metric>forage-turn-var</metric>
+    <metric>chase-step-var</metric>
+    <metric>forage-prob-var</metric>
+    <enumeratedValueSet variable="mutation-prob">
+      <value value="0.02"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-life">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="num-blobs">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MBI">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-prob">
+      <value value="0.04"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fang-size-41">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-energy">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fang-cost">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="forage-prob-41">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="biomass-conv">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grow-time">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="size-41">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="size-cost">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="breed-radius">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="movement-cost" first="0" step="0.1" last="2"/>
+    <enumeratedValueSet variable="num-offspring">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="num-agent-41s">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="bite-radius">
+      <value value="0.2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-speed-tot">
+      <value value="10"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="experiment_kauffman" repetitions="10" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>meanEnergy</metric>
+    <steppedValueSet variable="mutation-prob" first="0" step="0.01" last="0.1"/>
+    <enumeratedValueSet variable="max-life">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="num-blobs">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MBI">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-prob">
+      <value value="0.04"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fang-size-41">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="K" first="100" step="100" last="1000"/>
+    <enumeratedValueSet variable="food-energy">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fang-cost">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="forage-prob-41">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="size-41">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grow-time">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="biomass-conv">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="size-cost">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="breed-radius">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="movement-cost">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="num-offspring" first="1" step="1" last="5"/>
+    <enumeratedValueSet variable="num-agent-41s">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="bite-radius">
+      <value value="0.2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="max-speed-tot">
+      <value value="10"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="experiment_kauffman_fixed_offspring" repetitions="40" runMetricsEveryStep="false">
+    <setup>setup</setup>
+    <go>go</go>
+    <metric>meanEnergy</metric>
+    <steppedValueSet variable="mutation-prob" first="0" step="0.01" last="0.1"/>
+    <enumeratedValueSet variable="max-life">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="num-blobs">
+      <value value="400"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MBI">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="food-prob">
+      <value value="0.04"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fang-size-41">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="K" first="100" step="100" last="1000"/>
+    <enumeratedValueSet variable="food-energy">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="fang-cost">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="forage-prob-41">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="size-41">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="grow-time">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="biomass-conv">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="size-cost">
+      <value value="0.5"/>
+    </enumeratedValueSet>
     <enumeratedValueSet variable="breed-radius">
       <value value="4"/>
     </enumeratedValueSet>
